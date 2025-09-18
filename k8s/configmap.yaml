@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: brain-api-config
+  labels:
+    app: brain-api
+data:
+  MODEL_DIR: /app/ml/artifacts/current
+  WEAK_FEEDBACK_DIR: /app/data/weak_feedback
+  RETRAIN_SCRIPT: ml/retrain.py
+  RETRAIN_THRESHOLD: "5"
