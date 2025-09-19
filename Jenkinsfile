@@ -22,11 +22,28 @@ pipeline {
             }
         }
 
+        stage('Check Python') {
+            steps {
+                ansiColor('xterm') {
+                    bat '''
+                    python --version || (
+                        echo ERROR: Python not found! Please install Python from python.org and add it to PATH.
+                        exit 1
+                    )
+                    '''
+                }
+            }
+        }
+
         stage('Setup Python') {
             steps {
                 ansiColor('xterm') {
-                    bat 'python -m venv %VENV%'
-                    bat 'call %VENV%\\Scripts\\activate && pip install --upgrade pip && pip install -r requirements.txt'
+                    bat '''
+                    if not exist %VENV% (
+                        python -m venv %VENV%
+                    )
+                    call %VENV%\\Scripts\\activate && pip install --upgrade pip && pip install -r requirements.txt
+                    '''
                 }
             }
         }
