@@ -177,7 +177,7 @@ def trigger_retrain() -> Tuple[str, int]:
     return jsonify(response), 500
 
 
-def create_app() -> Flask:
+def create_app(*args, **kwargs) -> Flask:
     """Application factory for Flask 3.1+"""
     ensure_dirs()
     db.init_db()
@@ -186,6 +186,7 @@ def create_app() -> Flask:
     except FileNotFoundError as exc:
         app.logger.warning("model not loaded: %s", exc)
     return app
+
 
 
 def main() -> None:
