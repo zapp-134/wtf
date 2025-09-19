@@ -19,6 +19,6 @@ COPY ml ./ml
 COPY data ./data
 COPY scripts ./scripts
 
-EXPOSE 8000
+EXPOSE 6000
 
 CMD ["gunicorn", "api.app:create_app", "--bind", "0.0.0.0:8000", "--workers", "2"]

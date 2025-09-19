@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     ports:
-      - "5432:5432"
+      - "5439:5439"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -17,7 +17,7 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+      DATABASE_URL: postgresql://postgres:postgres@db:5439/postgres
       MODEL_DIR: /app/ml/artifacts/current
       WEAK_FEEDBACK_DIR: /app/data/weak_feedback
     volumes:
@@ -32,7 +32,7 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+      DATABASE_URL: postgresql://postgres:postgres@db:5439/postgres
       MODEL_DIR: /app/ml/artifacts/current
       WEAK_FEEDBACK_DIR: /app/data/weak_feedback
       THRESHOLD: 5
