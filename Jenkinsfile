@@ -25,8 +25,8 @@ pipeline {
         stage('Setup Python') {
             steps {
                 ansiColor('xterm') {
-                    sh 'python3 -m venv ${VENV}'
-                    sh '. ${VENV}/bin/activate && pip install --upgrade pip && pip install -r requirements.txt'
+                    bat 'python -m venv %VENV%'
+                    bat 'call %VENV%\\Scripts\\activate && pip install --upgrade pip && pip install -r requirements.txt'
                 }
             }
         }
@@ -34,7 +34,7 @@ pipeline {
         stage('Lint & Smoke Tests') {
             steps {
                 ansiColor('xterm') {
-                    sh '. ${VENV}/bin/activate && python -m py_compile ml/*.py api/*.py'
+                    bat 'call %VENV%\\Scripts\\activate && python -m py_compile ml\\*.py api\\*.py'
                 }
             }
         }
@@ -42,7 +42,7 @@ pipeline {
         stage('Train Model') {
             steps {
                 ansiColor('xterm') {
-                    sh '. ${VENV}/bin/activate && python ml/train.py --epochs 1 --batch_size 8 --out_dir ml/artifacts/cicd --weak_dir data/weak_feedback'
+                    bat 'call %VENV%\\Scripts\\activate && python ml\\train.py --epochs 1 --batch_size 8 --out_dir ml\\artifacts\\cicd --weak_dir data\\weak_feedback'
                 }
             }
             post {
@@ -55,7 +55,7 @@ pipeline {
         stage('Build API Image') {
             steps {
                 ansiColor('xterm') {
-                    sh 'docker build -t ${IMAGE} .'
+                    bat 'docker build -t %IMAGE% .'
                 }
             }
         }
@@ -63,7 +63,7 @@ pipeline {
         stage('Push Image') {
             steps {
                 ansiColor('xterm') {
-                    sh 'echo "Simulating push to registry..."'
+                    bat 'echo Simulating push to registry...'
                 }
             }
         }
@@ -71,8 +71,8 @@ pipeline {
         stage('Deploy Temp Namespace') {
             steps {
                 ansiColor('xterm') {
-                    sh 'kubectl create namespace ${REVIEW_NS} || true'
-                    sh 'kubectl apply -n ${REVIEW_NS} -f k8s/'
+                    bat 'kubectl create namespace %REVIEW_NS% || exit 0'
+                    bat 'kubectl apply -n %REVIEW_NS% -f k8s\\'
                 }
             }
         }
@@ -80,7 +80,7 @@ pipeline {
         stage('Argo CD Sync Stage') {
             steps {
                 ansiColor('xterm') {
-                    sh 'argocd app sync brain-tumor-stage --grpc-web || echo "ArgoCD CLI not configured"'
+                    bat 'argocd app sync brain-tumor-stage --grpc-web || echo ArgoCD CLI not configured'
                 }
             }
         }
@@ -88,7 +88,7 @@ pipeline {
         stage('Promote to Stage') {
             steps {
                 ansiColor('xterm') {
-                    sh 'kubectl apply -n ${STAGE_NS} -f k8s/'
+                    bat 'kubectl apply -n %STAGE_NS% -f k8s\\'
                 }
             }
         }
@@ -102,7 +102,7 @@ pipeline {
         stage('Deploy to Prod') {
             steps {
                 ansiColor('xterm') {
-                    sh 'kubectl apply -n ${PROD_NS} -f k8s/'
+                    bat 'kubectl apply -n %PROD_NS% -f k8s\\'
                 }
             }
         }
@@ -111,7 +111,7 @@ pipeline {
     post {
         always {
             ansiColor('xterm') {
-                sh 'docker image ls ${IMAGE} || true'
+                bat 'docker image ls %IMAGE% || exit 0'
             }
         }
     }
