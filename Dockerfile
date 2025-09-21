@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --upgrade pip \
     && pip install uv \
-    && uv pip install -r requirements.txt
+    && uv pip install --system -r requirements.txt 
 
 COPY api ./api
 COPY ml ./ml
@@ -25,4 +25,4 @@ RUN python -m pipelines.compile || true
 
 EXPOSE 6000
 
-CMD ["gunicorn", "api.app:create_app", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "600"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "600", "api.wsgi:app"]
