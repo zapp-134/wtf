@@ -2,7 +2,7 @@
 """Lightweight helpers to interact with Postgres for logging predictions and feedback."""
 
 import os
-import time
+import time  
 from typing import Optional
 
 try:
@@ -24,10 +24,12 @@ def get_engine():
     return _engine
 
 
-def init_db() -> None:
+def init_db(retries=5, delay=3) -> None:
+    """Initialize database with retry logic."""
     engine = get_engine()
     if engine is None or text is None:
         return
+    
     ddl_predictions = """
         CREATE TABLE IF NOT EXISTS predictions (
             id BIGSERIAL PRIMARY KEY,
@@ -47,9 +49,21 @@ def init_db() -> None:
             image_path TEXT
         )
     """
-    with engine.begin() as conn:
-        conn.execute(text(ddl_predictions))
-        conn.execute(text(ddl_feedback))
+    
+    for i in range(retries):
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl_predictions))
+                conn.execute(text(ddl_feedback))
+            print("[DB] Database initialized successfully.")
+            return  # Success!
+        except Exception as e:
+            print(f"[DB] Connection failed (Attempt {i + 1}/{retries}). Retrying in {delay}s...")
+            print(f"[DB] Error: {e}")
+            time.sleep(delay)
+    
+    print("[DB] FATAL: Could not initialize database after all retries.")
+    raise SystemExit("Failed to connect to database.")
 
 
 def log_prediction(probability: float, predicted_label: str, threshold: float) -> None:

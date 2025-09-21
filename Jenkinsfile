@@ -25,12 +25,7 @@ pipeline {
         stage('Check Python') {
             steps {
                 ansiColor('xterm') {
-                    bat '''
-                    python --version || (
-                        echo ERROR: Python not found! Please install Python from python.org and add it to PATH.
-                        exit 1
-                    )
-                    '''
+                    sh 'python3 --version'
                 }
             }
         }
@@ -38,11 +33,13 @@ pipeline {
         stage('Setup Python') {
             steps {
                 ansiColor('xterm') {
-                    bat '''
-                    if not exist %VENV% (
-                        python -m venv %VENV%
-                    )
-                    call %VENV%\\Scripts\\activate && pip install --upgrade pip && pip install -r requirements.txt
+                    sh '''
+                    if [ ! -d "${VENV}" ]; then
+                        python3 -m venv ${VENV}
+                    fi
+                    source ${VENV}/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
                     '''
                 }
             }
@@ -51,7 +48,10 @@ pipeline {
         stage('Lint & Smoke Tests') {
             steps {
                 ansiColor('xterm') {
-                    bat 'call %VENV%\\Scripts\\activate && python -m py_compile ml\\*.py api\\*.py'
+                    sh '''
+                    source ${VENV}/bin/activate
+                    python3 -m py_compile ml/*.py api/*.py
+                    '''
                 }
             }
         }
@@ -59,7 +59,10 @@ pipeline {
         stage('Train Model') {
             steps {
                 ansiColor('xterm') {
-                    bat 'call %VENV%\\Scripts\\activate && python ml\\train.py --epochs 1 --batch_size 8 --out_dir ml\\artifacts\\cicd --weak_dir data\\weak_feedback'
+                    sh '''
+                    source ${VENV}/bin/activate
+                    python3 ml/train.py --epochs 1 --batch_size 8 --out_dir ml/artifacts/cicd --weak_dir data/weak_feedback
+                    '''
                 }
             }
             post {
@@ -72,7 +75,8 @@ pipeline {
         stage('Build API Image') {
             steps {
                 ansiColor('xterm') {
-                    bat 'docker build -t %IMAGE% .'
+                    // Assuming Docker is installed on the Jenkins agent
+                    sh 'docker build -t ${IMAGE} .'
                 }
             }
         }
@@ -80,7 +84,8 @@ pipeline {
         stage('Push Image') {
             steps {
                 ansiColor('xterm') {
-                    bat 'echo Simulating push to registry...'
+                    // This stage would contain your gcloud/Artifact Registry push commands
+                    sh 'echo "Simulating push to ${IMAGE}..."'
                 }
             }
         }
@@ -88,8 +93,10 @@ pipeline {
         stage('Deploy Temp Namespace') {
             steps {
                 ansiColor('xterm') {
-                    bat 'kubectl create namespace %REVIEW_NS% || exit 0'
-                    bat 'kubectl apply -n %REVIEW_NS% -f k8s\\'
+                    // Use '|| true' to ignore "already exists" errors
+                    sh 'kubectl create namespace ${REVIEW_NS} || true'
+                    // Use forward slashes for paths
+                    sh 'kubectl apply -n ${REVIEW_NS} -f k8s/'
                 }
             }
         }
@@ -97,7 +104,7 @@ pipeline {
         stage('Argo CD Sync Stage') {
             steps {
                 ansiColor('xterm') {
-                    bat 'argocd app sync brain-tumor-stage --grpc-web || echo ArgoCD CLI not configured'
+                    sh 'argocd app sync brain-tumor-stage --grpc-web || echo "ArgoCD CLI not configured or sync failed"'
                 }
             }
         }
@@ -105,7 +112,7 @@ pipeline {
         stage('Promote to Stage') {
             steps {
                 ansiColor('xterm') {
-                    bat 'kubectl apply -n %STAGE_NS% -f k8s\\'
+                    sh 'kubectl apply -n ${STAGE_NS} -f k8s/'
                 }
             }
         }
@@ -119,7 +126,7 @@ pipeline {
         stage('Deploy to Prod') {
             steps {
                 ansiColor('xterm') {
-                    bat 'kubectl apply -n %PROD_NS% -f k8s\\'
+                    sh 'kubectl apply -n ${PROD_NS} -f k8s/'
                 }
             }
         }
@@ -128,7 +135,8 @@ pipeline {
     post {
         always {
             ansiColor('xterm') {
-                bat 'docker image ls %IMAGE% || exit 0'
+                // Clean up Docker image on the agent
+                sh 'docker image ls ${IMAGE} || true'
             }
         }
     }

@@ -18,7 +18,6 @@ import tensorflow as tf
 from flask import Flask, jsonify, request
 
 from ml.train import CLASS_MAP, IMG_SIZE, preprocess_input
-
 from . import db
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +37,7 @@ inv_label_map: Dict[int, str] = {0: "no", 1: "yes"}
 
 
 def _load_label_map() -> None:
+    """Load label map from file if available."""
     global inv_label_map
     if LABEL_MAP_FILE.exists():
         with LABEL_MAP_FILE.open() as fh:
@@ -46,6 +46,7 @@ def _load_label_map() -> None:
 
 
 def load_model_artifacts() -> None:
+    """Load model and threshold from artifacts."""
     global model, threshold
     if not MODEL_FILE.exists():
         raise FileNotFoundError(f"Model file not found at {MODEL_FILE}. Run training first.")
@@ -57,17 +58,20 @@ def load_model_artifacts() -> None:
 
 
 def ensure_dirs() -> None:
+    """Ensure weak feedback directories exist."""
     for cls in CLASS_MAP:
         (WEAK_DIR / cls).mkdir(parents=True, exist_ok=True)
 
 
 def decode_base64_image(data: str) -> bytes:
+    """Decode base64-encoded image string into bytes."""
     if data.startswith("data:"):
         data = data.split(",", 1)[1]
     return base64.b64decode(data)
 
 
 def image_bytes_to_tensor(image_bytes: bytes) -> np.ndarray:
+    """Convert raw image bytes into model-ready numpy array."""
     img = tf.io.decode_image(image_bytes, channels=3, expand_animations=False)
     img.set_shape([None, None, 3])
     img = tf.image.resize(img, (IMG_SIZE, IMG_SIZE))
@@ -78,6 +82,7 @@ def image_bytes_to_tensor(image_bytes: bytes) -> np.ndarray:
 
 
 def write_feedback_image(image_bytes: bytes, label: str) -> Path:
+    """Save feedback image under the given label directory."""
     ext = imghdr.what(None, image_bytes) or "png"
     if ext == "jpeg":
         ext = "jpg"
@@ -85,16 +90,6 @@ def write_feedback_image(image_bytes: bytes, label: str) -> Path:
     dest = WEAK_DIR / label / fname
     dest.write_bytes(image_bytes)
     return dest
-
-
-@app.before_first_request
-def _lazy_init() -> None:
-    ensure_dirs()
-    db.init_db()
-    try:
-        load_model_artifacts()
-    except FileNotFoundError as exc:
-        app.logger.warning("model not loaded: %s", exc)
 
 
 @app.route("/health", methods=["GET"])
@@ -141,7 +136,12 @@ def feedback() -> Tuple[str, int]:
     image_bytes = decode_base64_image(payload["image"])
     dest = write_feedback_image(image_bytes, correct_label)
     probability = float(payload.get("probability", 0.0))
-    db.store_feedback(predicted_label=predicted_label, correct_label=correct_label, probability=probability, image_path=str(dest))
+    db.store_feedback(
+        predicted_label=predicted_label,
+        correct_label=correct_label,
+        probability=probability,
+        image_path=str(dest),
+    )
     return jsonify({"status": "stored", "path": str(dest)}), 200
 
 
@@ -157,7 +157,9 @@ def trigger_retrain() -> Tuple[str, int]:
     for item in train_args:
         cmd.extend(["--train_arg", item])
     try:
-        completed = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=str(PROJECT_ROOT))
+        completed = subprocess.run(
+            cmd, capture_output=True, text=True, check=False, cwd=str(PROJECT_ROOT)
+        )
     except FileNotFoundError as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -175,7 +177,8 @@ def trigger_retrain() -> Tuple[str, int]:
     return jsonify(response), 500
 
 
-def create_app() -> Flask:
+def create_app(*args, **kwargs) -> Flask:
+    """Application factory for Flask 3.1+"""
     ensure_dirs()
     db.init_db()
     try:
@@ -185,9 +188,10 @@ def create_app() -> Flask:
     return app
 
 
+
 def main() -> None:
     create_app()
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "6000")))
 
 
 if __name__ == "__main__":
